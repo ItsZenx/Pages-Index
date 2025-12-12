@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZEN | WOLF SYSTEM </title>
+    
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Teko:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #00d9ff; 
+            --primary-dim: #005f70;
+            --accent: #ffffff;
+            --bg-dark: #050505;
+            --glass: rgba(5, 10, 15, 0.7);
+            --border: rgba(0, 217, 255, 0.3);
+            --text-main: #e0faff;
+            --text-dim: #6c8a90;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            cursor: default;
+        }
+
+        body {
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            perspective: 1000px; /* Essential for 3D UI */
+        }
+
+        /* --- 3D BACKGROUND --- */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            /* Slight blur to make UI pop */
+            filter: blur(1px) brightness(0.7);
+        }
+
+        /* --- UI OVERLAYS --- */
+        .vignette {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.8) 100%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 2;
+            opacity: 0.3;
+        }
+
+        /* --- MAIN UI LAYER --- */
+        #ui-layer {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            padding: 3vh 3vw;
+        }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            position: relative;
+        }
+        .header::after {
+            content: ''; position: absolute; bottom: -3px; right: 0; width: 30%; height: 3px; background: var(--primary);
+        }
+
+        .brand-container {
+            display: flex;
+            flex-direction: column;
+        }
+        .brand {
+            font-family: 'Teko', sans-serif;
+            font-size: 3.5rem;
+            line-height: 0.8;
+            letter-spacing: 2px;
+            color: white;
+            text-shadow: 0 0 20px var(--primary-dim);
+            transform: skewX(-10deg);
+        }
+        .brand span { color: var(--primary); }
+        .sub-brand {
+            font-size: 0.8rem;
+            letter-spacing: 4px;
+            color: var(--text-dim);
+            margin-left: 5px;
+        }
+
+        /* Decorative Header Stats */
+        .header-stats {
+            display: flex;
+            gap: 30px;
+            font-size: 0.8rem;
+            color: var(--primary);
+            font-family: 'Rajdhani', monospace;
+        }
+        .stat-group { text-align: right; }
+        .stat-label { font-size: 0.7rem; color: var(--text-dim); }
+        .stat-value { font-weight: bold; letter-spacing: 1px; }
+
+        /* MIDDLE SECTION */
+        .main-content {
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding-top: 20px;
+        }
+
+        /* 3D NAV MENU */
+        .nav-container {
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+
+        .nav-btn {
+            position: relative;
+            background: rgba(0, 15, 30, 0.6);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-family: 'Teko', sans-serif;
+            font-size: 1.6rem; /* Smaller as requested */
+            text-align: left;
+            padding: 8px 20px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            
+            /* 3D Transform */
+            transform: skewX(-10deg) translateZ(0);
+            transform-origin: left;
+            clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%);
+            
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            overflow: hidden;
+        }
+
+        .nav-btn i { width: 20px; text-align: center; font-size: 1rem; transition: 0.3s; }
+
+        /* Hover State */
+        .nav-btn:hover {
+            color: white;
+            background: rgba(0, 217, 255, 0.15);
+            border-color: var(--primary);
+            padding-left: 30px;
+            transform: skewX(-10deg) translateX(10px) scale(1.02);
+            box-shadow: -5px 0 15px rgba(0, 217, 255, 0.2);
+            z-index: 10;
+        }
+
+        /* Active State */
+        .nav-btn.active {
+            color: black;
+            background: var(--primary);
+            border-color: var(--primary);
+            font-weight: 600;
+            padding-left: 35px;
+            transform: skewX(-10deg) translateX(15px);
+            box-shadow: 0 0 20px var(--primary);
+        }
+        .nav-btn.active i { color: black; }
+
+        /* Decorative line on buttons */
+        .nav-btn::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+            background: white; opacity: 0; transition: 0.3s;
+        }
+        .nav-btn.active::before { opacity: 1; }
+
+
+        /* CONTENT PANELS */
+        .display-area {
+            flex-grow: 1;
+            margin-left: 60px;
+            height: 100%;
+            max-height: 500px;
+            position: relative;
+        }
+
+        .panel {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; max-width: 550px;
+            opacity: 0;
+            transform: perspective(1000px) rotateY(10deg) translateX(50px) scale(0.9);
+            transform-origin: left center;
+            pointer-events: none;
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            
+            background: linear-gradient(135deg, rgba(10, 20, 30, 0.9), rgba(5, 10, 15, 0.8));
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            padding: 25px;
+            
+            /* Complex shape */
+            clip-path: polygon(
+                20px 0, 100% 0, 
+                100% calc(100% - 20px), calc(100% - 20px) 100%, 
+                0 100%, 0 20px
+            );
+            
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+
+        .panel.active {
+            opacity: 1;
+            transform: perspective(1000px) rotateY(0deg) translateX(0) scale(1);
+            pointer-events: all;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--primary-dim);
+            margin-bottom: 20px;
+            padding-bottom: 5px;
+        }
+
+        .panel h2 {
+            font-family: 'Teko', sans-serif;
+            font-size: 2.2rem;
+            color: white;
+            text-transform: uppercase;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px 20px;
+            margin-bottom: 20px;
+            font-size: 1rem;
+        }
+        .label { color: var(--primary); font-weight: 700; letter-spacing: 1px; font-size: 0.9rem; }
+        .value { color: #fff; font-weight: 300; }
+
+        .desc-box {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #a0b0b5;
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-left: 2px solid var(--primary);
+        }
+
+        /* 3D ACTION BUTTON */
+        .deploy-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            background: transparent;
+            color: var(--primary);
+            text-decoration: none;
+            font-family: 'Teko', sans-serif;
+            font-size: 1.4rem;
+            padding: 8px 30px;
+            border: 1px solid var(--primary);
+            position: relative;
+            overflow: hidden;
+            transition: 0.3s;
+            text-transform: uppercase;
+        }
+        
+        .deploy-btn::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: var(--primary); transition: 0.3s; z-index: -1;
+        }
+        
+        .deploy-btn:hover { color: black; box-shadow: 0 0 15px var(--primary); }
+        .deploy-btn:hover::before { left: 0; }
+
+        /* Social List */
+        .social-list { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+        .social-item {
+            display: flex; align-items: center; gap: 15px;
+            background: rgba(255,255,255,0.05);
+            padding: 10px;
+            border: 1px solid transparent;
+            text-decoration: none;
+            color: white;
+            transition: 0.3s;
+        }
+        .social-item i { color: var(--primary); font-size: 1.2rem; width: 25px; text-align: center; }
+        .social-item:hover { border-color: var(--primary); background: rgba(0, 217, 255, 0.1); transform: translateX(5px); }
+
+        /* FOOTER & DECORATIONS */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        .deco-circle {
+            position: fixed;
+            bottom: 50px; right: 50px;
+            width: 150px; height: 150px;
+            border: 1px dashed var(--primary-dim);
+            border-radius: 50%;
+            opacity: 0.5;
+            animation: rotate 20s linear infinite;
+            pointer-events: none;
+            display: grid; place-items: center;
+        }
+        .deco-circle::before { content: ''; width: 80%; height: 80%; border: 1px solid var(--primary-dim); border-radius: 50%; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .coord-box {
+            position: fixed;
+            bottom: 150px; left: 40px;
+            font-family: monospace;
+            color: var(--primary-dim);
+            font-size: 0.7rem;
+            display: flex; flex-direction: column; gap: 5px;
+        }
+
+        @media (max-width: 768px) {
+            #ui-layer { padding: 10px; grid-template-rows: auto 1fr auto; }
+            .main-content { flex-direction: column; align-items: stretch; margin-top: 10px; }
+            .nav-container { flex-direction: row; width: 100%; overflow-x: auto; gap: 5px; margin-bottom: 20px; perspective: none; }
+            .nav-btn { transform: none; font-size: 1.2rem; clip-path: none; flex: 1; justify-content: center; border: 1px solid var(--border); }
+            .nav-btn:hover, .nav-btn.active { transform: none; padding-left: 20px; }
+            .display-area { margin-left: 0; height: auto; }
+            .panel { position: relative; width: 100%; max-width: 100%; transform: none; opacity: 1; display: none; clip-path: none; border: 1px solid var(--border); background: rgba(5,10,15,0.9); }
+            .panel.active { display: block; animation: fadeUp 0.4s ease; }
+            .deco-circle, .coord-box { display: none; }
+            .brand { font-size: 2.5rem; }
+        }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <canvas id="bg-canvas"></canvas>
+    
+    <!-- Overlays -->
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <!-- UI -->
+    <div id="ui-layer">
+        
+        <!-- TOP HEADER -->
+        <header class="header">
+            <div class="brand-container">
+                <div class="brand">ZEN <span>[Wolf]</span></div>
+                <div class="sub-brand">TACTICAL SYSTEMS INTERFACE</div>
+            </div>
+            <div class="header-stats">
+                <div class="stat-group">
+                    <div class="stat-label">LATENCY</div>
+                    <div class="stat-value" id="ping">24ms</div>
+                </div>
+                <div class="stat-group">
+                    <div class="stat-label">LOCATION</div>
+                    <div class="stat-value">MX-NORD</div>
+                </div>
+                <div class="stat-group">
+                    <div class="stat-label">WEATHER</div>
+                    <div class="stat-value">-5°C SNOW</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN SECTION -->
+        <div class="main-content">
+            
+            <!-- LEFT NAVIGATION -->
+            <nav class="nav-container">
+                <button class="nav-btn active" onmouseenter="playSfx('hover')" onclick="playSfx('click'); switchTab('profile', this)">
+                    <i class="fas fa-id-card-alt"></i> OPERATOR
+                </button>
+                <button class="nav-btn" onmouseenter="playSfx('hover')" onclick="playSfx('click'); switchTab('projects', this)">
+                    <i class="fas fa-gamepad"></i> MISSIONS
+                </button>
+                <button class="nav-btn" onmouseenter="playSfx('hover')" onclick="playSfx('click'); switchTab('socials', this)">
+                    <i class="fas fa-satellite-dish"></i> COMMS
+                </button>
+                <button class="nav-btn" style="opacity: 0.5; cursor: not-allowed;">
+                    <i class="fas fa-lock"></i> CLASSIFIED
+                </button>
+            </nav>
+
+            <!-- RIGHT CONTENT -->
+            <div class="display-area">
+                
+                <!-- PROFILE PANEL -->
+                <div id="profile" class="panel active">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-user-circle" style="color:var(--primary); margin-right:10px;"></i> Operator Data</h2>
+                        <span style="font-family: monospace; font-size: 0.8rem; color: var(--primary);">ID: 994-AZ</span>
+                    </div>
+                    <div class="data-grid">
+                        <div class="label">CODENAME</div> <div class="value">ZEN</div>
+                        <div class="label">CLASS</div> <div class="value">PYTHON DEV / ARCHITECT</div>
+                        <div class="label">REGION</div> <div class="value">MÉXICO / GLOBAL SECTOR</div>
+                        <div class="label">STATUS</div> <div class="value" style="color:#00ff00;">ACTIVE</div>
+                    </div>
+                    <div class="desc-box">
+                        <i class="fas fa-quote-left" style="color:var(--primary-dim); margin-right: 5px;"></i>
+                        Enthusiastic about development using programming languages, generally for personal projects. Equally enthusiastic about digital and traditional art. Specializing in immersive UI and tactical systems.
+                    </div>
+                </div>
+
+                <!-- MISSIONS (PROJECTS) PANEL -->
+                <div id="projects" class="panel">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-crosshairs" style="color:var(--primary); margin-right:10px;"></i> Active Ops</h2>
+                        <span style="font-family: monospace; font-size: 0.8rem; color: var(--primary);">SRC: ITCH.IO</span>
+                    </div>
+                    <div class="data-grid">
+                        <div class="label">TARGET</div> <div class="value">GAME DATABASE</div>
+                        <div class="label">CLEARANCE</div> <div class="value">LEVEL 5 (PUBLIC)</div>
+                    </div>
+                    <div class="desc-box">
+                        Access the central repository of deployed prototypes and full releases. Direct uplink to itch.io profile established.
+                    </div>
+                    <a href="https://itszen.itch.io" target="_blank" class="deploy-btn" onmouseenter="playSfx('hover')" onclick="playSfx('click')">
+                        INITIATE LAUNCH <i class="fas fa-external-link-alt" style="margin-left: 10px;"></i>
+                    </a>
+                </div>
+
+                <!-- COMMS (SOCIALS) PANEL -->
+                <div id="socials" class="panel">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-broadcast-tower" style="color:var(--primary); margin-right:10px;"></i> Encrypted Comms</h2>
+                    </div>
+                    <div class="social-list">
+                        
+                        <div class="social-item">
+                            <i class="fab fa-discord"></i>
+                            <div style="flex-grow:1;">
+                                <div style="font-size: 0.8rem; color: var(--primary);">USER: aceluds.</div>
+                                <a href="https://discord.gg/dyFD4NqtKN" target="_blank" style="color:white; text-decoration:none; font-size: 0.9rem;" onclick="playSfx('click')">JOIN SERVER CHANNEL_01</a>
+                            </div>
+                            <i class="fas fa-chevron-right" style="font-size: 0.8rem; opacity: 0.5;"></i>
+                        </div>
+
+                        <a href="https://www.instagram.com/_itszenx_/" target="_blank" class="social-item" onmouseenter="playSfx('hover')" onclick="playSfx('click')">
+                            <i class="fab fa-instagram"></i>
+                            <span style="flex-grow:1;">_itszenx_</span>
+                            <i class="fas fa-external-link-alt" style="font-size: 0.8rem; opacity: 0.5;"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="footer">
+            <div>
+                <span style="color:var(--primary)">SYS.MSG:</span> AUDIO DRIVERS READY... CLICK TO ENGAGE
+            </div>
+            <div style="display:flex; gap:20px;">
+                <span>CPU: <span id="cpu-stat">12</span>%</span>
+                <span>MEM: <span id="mem-stat">4.2</span>GB</span>
+                <span>VER: 3.0.1</span>
+            </div>
+        </footer>
+
+        <!-- DECORATIONS -->
+        <div class="deco-circle"></div>
+        <div class="coord-box">
+            <span>X: 492.392</span>
+            <span>Y: 102.993</span>
+            <span>Z: 000.121</span>
+        </div>
+
+    </div>
+
+    <script>
+        // --- AUDIO SYSTEM ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSfx(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'hover') {
+                // Short high blip
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.05);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'click') {
+                // Heavy mechanical thud
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+        }
+
+        // --- UI LOGIC ---
+        function switchTab(id, btn) {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(id).classList.add('active');
+        }
+
+        // --- THREE.JS CITY SCENE ---
+        const canvas = document.getElementById('bg-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        
+        const scene = new THREE.Scene();
+        // Fog for snowy atmosphere
+        scene.fog = new THREE.FogExp2(0x050a0f, 0.02);
+        scene.background = new THREE.Color(0x050a0f);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 10, 30);
+        camera.lookAt(0, 0, 0);
+
+        // LIGHTS
+        const ambientLight = new THREE.AmbientLight(0x00d9ff, 0.1);
+        scene.add(ambientLight);
+        
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        // CITY GENERATION (Instanced Mesh for performance)
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        const boxMat = new THREE.MeshLambertMaterial({ 
+            color: 0x1a2b3c, 
+            emissive: 0x001122,
+        });
+        
+        // Wireframe edges for that "tactical map" look
+        const edgesGeo = new THREE.EdgesGeometry(boxGeo);
+        const edgesMat = new THREE.LineBasicMaterial({ color: 0x00d9ff, transparent: true, opacity: 0.1 });
+
+        const buildingCount = 400;
+        const buildings = new THREE.InstancedMesh(boxGeo, boxMat, buildingCount);
+        const buildingEdges = new THREE.Group();
+
+        const dummy = new THREE.Object3D();
+        const spread = 80;
+
+        for(let i = 0; i < buildingCount; i++) {
+            const h = Math.random() * 8 + 2; // Height
+            const x = (Math.random() - 0.5) * spread;
+            const z = (Math.random() - 0.5) * spread - 20; // Push back a bit
+            
+            dummy.position.set(x, h/2, z);
+            dummy.scale.set(Math.random()*2+1, h, Math.random()*2+1);
+            dummy.updateMatrix();
+            buildings.setMatrixAt(i, dummy.matrix);
+
+            // Add simple wireframe to some buildings manually (expensive to do all edges, so we do a few mesh lines)
+             if (i % 5 === 0) { // Only some buildings get outlines to save perf
+                 const line = new THREE.LineSegments(edgesGeo, edgesMat);
+                 line.position.copy(dummy.position);
+                 line.scale.copy(dummy.scale);
+                 buildingEdges.add(line);
+             }
+        }
+        scene.add(buildings);
+        scene.add(buildingEdges);
+
+        // SNOW PARTICLES
+        const snowGeo = new THREE.BufferGeometry();
+        const snowCount = 2000;
+        const posArray = new Float32Array(snowCount * 3);
+        
+        for(let i=0; i < snowCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 100;
+        }
+        snowGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const snowMat = new THREE.PointsMaterial({
+            size: 0.15,
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.8
+        });
+        const snowSystem = new THREE.Points(snowGeo, snowMat);
+        scene.add(snowSystem);
+
+        // GROUND
+        const gridHelper = new THREE.GridHelper(100, 50, 0x00d9ff, 0x003344);
+        gridHelper.position.y = 0;
+        gridHelper.material.opacity = 0.2;
+        gridHelper.material.transparent = true;
+        scene.add(gridHelper);
+
+        // ANIMATION LOOP
+        let mouseX = 0;
+        let mouseY = 0;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX - window.innerWidth/2) * 0.01;
+            mouseY = (e.clientY - window.innerHeight/2) * 0.01;
+        });
+
+        // Random stat update
+        setInterval(() => {
+            document.getElementById('ping').innerText = Math.floor(Math.random() * 15 + 15) + "ms";
+            document.getElementById('cpu-stat').innerText = Math.floor(Math.random() * 20 + 10);
+            document.getElementById('mem-stat').innerText = (Math.random() * 1 + 3).toFixed(1);
+        }, 2000);
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Camera drift based on mouse
+            camera.position.x += (mouseX - camera.position.x) * 0.02;
+            camera.position.y += (10 + mouseY * 0.5 - camera.position.y) * 0.02;
+            camera.lookAt(0, 0, -10);
+
+            // Snow fall
+            const positions = snowSystem.geometry.attributes.position.array;
+            for(let i = 1; i < snowCount * 3; i+=3) {
+                positions[i] -= 0.1; // Fall down
+                if (positions[i] < 0) positions[i] = 20; // Reset to top
+            }
+            snowSystem.geometry.attributes.position.needsUpdate = true;
+
+            // Rotate edges slightly for dynamic feel
+            buildingEdges.rotation.y += 0.0005;
+            buildings.rotation.y += 0.0005;
+            gridHelper.rotation.y += 0.0005;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
